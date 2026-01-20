@@ -1,0 +1,116 @@
+# 阶段二B：大规模验证测试配置 (5000万×Qwen-0.6B×4数据库)
+
+# 大规模向量生成配置
+large_scale_generation:
+  model: "qwen2.5-0.6b"
+  target_size: 50000000  # 5000万
+  source_dataset: "ms_marco"  # 870万基础数据
+  sampling_strategy: "repeat_with_noise"  # 重复采样并添加轻微噪声
+  batch_size: 32
+  output_file: "vector_cache/qwen2.5-0.6b-50m.h5"
+
+# Xinference配置
+xinference:
+  host: "192.168.1.51"
+  port: 9997
+  timeout: 300
+
+# 数据库配置（与phase2a相同）
+databases:
+  elasticsearch:
+    host: "localhost"
+    port: 9200
+    enabled: true
+    collection: "benchmark_50m_es"
+    # ILM热温冷分层配置
+    ilm_policy:
+      hot:
+        max_age: "7d"
+        max_size: "50gb"
+      warm:
+        min_age: "7d"
+        max_age: "30d"
+      cold:
+        min_age: "30d"
+        
+  milvus_cpu:
+    host: "localhost"
+    port: 19530
+    enabled: true
+    collection: "benchmark_50m_cpu"
+    # 分区策略
+    num_partitions: 10
+    
+  milvus_gpu:
+    host: "localhost"
+    port: 19531
+    enabled: true
+    collection: "benchmark_50m_gpu"
+    
+  qdrant:
+    host: "localhost"
+    port: 6333
+    enabled: true
+    collection: "benchmark_50m"
+
+# 大规模测试配置
+benchmarks:
+  # 大规模导入测试
+  large_import:
+    enabled: true
+    batch_size: 5000
+    parallel_workers: 8
+    checkpoint_interval: 1000000  # 每100万条checkpoint
+    
+  # 大规模搜索性能
+  large_search:
+    enabled: true
+    num_queries: 5000
+    concurrent_clients: [10, 50, 100, 200]
+    
+  # ILM分层测试（仅ES）
+  ilm_test:
+    enabled: true
+    test_scenarios:
+      - name: "hot_only"
+        age: "1d"
+      - name: "hot_warm"
+        age: "15d"
+      - name: "hot_warm_cold"
+        age: "60d"
+        
+  # 分区测试（仅Milvus）
+  partition_test:
+    enabled: true
+    test_cross_partition: true
+    
+  # 资源压力测试
+  stress_test:
+    enabled: true
+    duration: 300  # 5分钟
+    max_concurrent: 500
+
+# 成本分析配置
+cost_analysis:
+  enabled: true
+  cloud_provider: "aws"  # 或 "aliyun", "gcp"
+  pricing:
+    compute: 0.5  # $/hour
+    storage_ssd: 0.1  # $/GB/month
+    storage_hdd: 0.03  # $/GB/month
+    gpu: 3.0  # $/hour
+    network: 0.09  # $/GB
+
+# 报告配置
+report:
+  output_dir: "phase2_results"
+  filename: "phase2b_大规模验证报告.html"
+  include_cost_analysis: true
+  include_scaling_projections: true
+  projection_scales: [100000000, 500000000, 1000000000]  # 1亿、5亿、10亿
+
+# 日志配置
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  log_file: "phase2b.log"

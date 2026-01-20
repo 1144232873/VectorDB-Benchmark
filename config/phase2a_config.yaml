@@ -1,0 +1,116 @@
+# 阶段二A：常规搜索性能测试配置 (300万×5模型×4数据库)
+
+# 数据库配置
+databases:
+  elasticsearch:
+    host: "localhost"
+    port: 9200
+    enabled: true
+    index_prefix: "vector_benchmark"
+    settings:
+      number_of_shards: 1
+      number_of_replicas: 0
+      index.knn: true
+      index.knn.algo_param.ef_construction: 512
+      # BBQ量化
+      index.codec: "best_compression"
+      
+  milvus_cpu:
+    host: "localhost"
+    port: 19530
+    enabled: true
+    collection_prefix: "benchmark_cpu"
+    index_type: "HNSW"
+    index_params:
+      M: 16
+      efConstruction: 256
+    search_params:
+      ef: 128
+      
+  milvus_gpu:
+    host: "localhost"
+    port: 19531
+    enabled: true
+    collection_prefix: "benchmark_gpu"
+    index_type: "GPU_CAGRA"
+    index_params:
+      intermediate_graph_degree: 64
+      graph_degree: 32
+    search_params:
+      itopk_size: 128
+      
+  qdrant:
+    host: "localhost"
+    port: 6333
+    enabled: true
+    collection_prefix: "benchmark"
+    index_params:
+      m: 16
+      ef_construct: 256
+    search_params:
+      hnsw_ef: 128
+
+# 向量缓存配置
+vector_cache:
+  input_dir: "vector_cache"
+  models:
+    - "bge-base-zh-v1.5"
+    - "bge-m3"
+    - "qwen2.5-0.6b"
+    - "qwen2.5-4b"
+    - "qwen2.5-8b"
+
+# 测试配置
+benchmarks:
+  # 数据导入测试
+  import:
+    enabled: true
+    batch_size: 1000
+    parallel_workers: 4
+    measure_indexing_time: true
+    
+  # 搜索延迟测试
+  latency:
+    enabled: true
+    num_queries: 1000
+    warmup_queries: 100
+    cold_start_test: true
+    hot_query_test: true
+    percentiles: [50, 90, 95, 99]
+    
+  # 并发吞吐量测试
+  throughput:
+    enabled: true
+    duration: 60  # 秒
+    concurrent_clients: [1, 10, 50, 100]
+    ramp_up_time: 5
+    
+  # 资源监控
+  resource_monitor:
+    enabled: true
+    interval: 1  # 秒
+    metrics:
+      - cpu
+      - memory
+      - gpu
+      - disk_io
+      - network_io
+
+# 查询配置
+queries:
+  dataset: "ms_marco"
+  num_queries: 10000
+  top_k: 10
+  
+# 报告配置
+report:
+  output_dir: "phase2_results"
+  filename: "phase2a_常规测试报告.html"
+  include_comparisons: true
+  include_recommendations: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  log_file: "phase2a.log"
