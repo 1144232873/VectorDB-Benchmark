@@ -1,7 +1,7 @@
 """
-数据集加载模块
+数据加载模块
 """
 
-from .ms_marco_loader import MSMARCOLoader
+from .dataset_loader import DatasetLoader
 
-__all__ = ["MSMARCOLoader"]
+__all__ = ["DatasetLoader"]

@@ -47,7 +47,9 @@ vector_cache/
 *.h5
 phase1_results/
 phase2_results/
-data/ms_marco/
+data/dataset/
+datasets/raw/
+datasets/processed/*.tsv
 .env
 
 # Jupyter

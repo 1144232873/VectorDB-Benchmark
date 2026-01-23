@@ -27,17 +27,29 @@ ssh benchmark
 ### 1. 部署代码到远程
 
 ```bash
-# 使用 rsync（推荐）
 rsync -avz -e "ssh -p 2222" \
   --exclude '__pycache__' --exclude '.git' \
   VectorDB-Benchmark/ root@192.168.1.51:~/VectorDB-Benchmark/
-
-# 或配置 SSH Config 后简化为：
-rsync -avz --exclude '__pycache__' \
-  VectorDB-Benchmark/ benchmark:~/VectorDB-Benchmark/
 ```
 
-### 2. 运行阶段一：向量生成测试 (17-26小时)
+### 2. 准备数据集（首次）
+
+```bash
+ssh -p 2222 root@192.168.1.51
+cd ~/VectorDB-Benchmark/datasets/scripts
+
+# 快速开始：生成10万条测试数据（1-2小时）
+chmod +x quick_start.sh
+./quick_start.sh 100000
+
+# 或下载真实数据（300万条，20-30小时）
+python3 convert_to_tsv.py \
+  --format huggingface "CLUEbenchmark/CLUECorpus2020" \
+  ../processed/clue.tsv --max-samples 3000000
+./prepare_dataset.sh clue.tsv
+```
+
+### 3. 运行阶段一：向量生成测试
 
 ```bash
 # 在终端窗口1中运行
@@ -60,7 +72,7 @@ tail -f ~/VectorDB-Benchmark/logs/phase1.log
 watch -n 1 nvidia-smi
 ```
 
-### 3. 运行阶段二：向量搜索测试 (6-8小时)
+### 4. 运行阶段二：向量搜索测试
 
 ```bash
 # 在新的终端窗口中运行
@@ -81,7 +93,7 @@ python run_phase2.py --config ../config/phase2_config.yaml
 nohup python run_phase2.py --config ../config/phase2_config.yaml > ../logs/phase2.log 2>&1 &
 ```
 
-### 4. 查看报告
+### 5. 查看报告
 
 ```bash
 # 方式1：端口转发
@@ -151,23 +163,25 @@ VectorDB-Benchmark/
 │   ├── phase2a_config.yaml      # 阶段二A配置
 │   └── phase2b_config.yaml      # 阶段二B配置
 │
-├── datasets/                    # 数据集管理（新增）
+├── datasets/                    # 📦 数据集管理（新增）
 │   ├── raw/                     # 原始数据存储
 │   ├── processed/               # 转换后的TSV数据
 │   ├── scripts/                 # 数据处理工具
-│   │   ├── convert_to_tsv.py   # 格式转换
+│   │   ├── convert_to_tsv.py   # 格式转换（JSON/Parquet/HuggingFace）
 │   │   ├── validate_tsv.py     # 格式校验
-│   │   ├── prepare_dataset.sh  # 一键准备
+│   │   ├── prepare_dataset.sh  # 一键准备和切换
 │   │   ├── generate_test_data.py # 快速生成测试数据
-│   │   └── quick_start.sh      # 快速开始
-│   ├── README.md                # 使用说明
-│   └── EXAMPLES.md              # 使用示例
+│   │   └── quick_start.sh      # 快速开始（推荐）
+│   ├── README.md                # 完整使用说明
+│   └── QUICK_REFERENCE.md       # 快速参考
 │
 ├── phase1_embedding/            # 阶段一：向量生成
 │   ├── models/                  # 模型客户端
 │   │   └── xinference_client.py
 │   ├── data/                    # 数据加载
-│   │   └── ms_marco_loader.py
+│   │   ├── dataset/             # 当前测试数据集
+│   │   │   └── collection.tsv   # 格式: id\t文本
+│   │   └── dataset_loader.py    # 数据加载器
 │   ├── benchmarks/              # 性能测试
 │   │   ├── gpu_monitor.py
 │   │   └── inference_benchmark.py
@@ -190,10 +204,7 @@ VectorDB-Benchmark/
 ├── phase1_results/              # 阶段一结果
 ├── phase2_results/              # 阶段二结果
 │
-├── README.md                    # 项目主文档
-├── QUICK_START.md              # 快速开始指南
-├── SETUP_REMOTE.md             # 远程部署配置
-├── UV_SETUP_GUIDE.md           # UV详细使用指南
+├── README.md                    # 本文件
 ├── .gitignore                  # Git忽略配置
 └── .python-version             # Python版本
 ```

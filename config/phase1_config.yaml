@@ -40,21 +40,12 @@ models:
 
 # 数据集配置
 dataset:
-  name: "ms_marco"
-  path: "data/ms_marco"
-  
-  # 下载配置
-  download:
-    passage_url: "https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz"
-    query_url: "https://msmarco.blob.core.windows.net/msmarcoranking/queries.tar.gz"
-    
-  # 采样配置
-  sample_size: 3000000  # 300万段落
-  seed: 42
-  
-  # 预处理
-  max_length: 512
-  min_length: 10
+  name: "benchmark_dataset"  # 数据集名称（仅用于日志）
+  path: "data/dataset"  # 数据集路径
+  sample_size: 3000000  # 目标采样数量（实际使用 min(sample_size, 文件行数)）
+  seed: 42  # 随机种子
+  max_length: 512  # 最大文本长度
+  min_length: 10  # 最小文本长度
 
 # 推理性能测试配置
 inference_benchmark:

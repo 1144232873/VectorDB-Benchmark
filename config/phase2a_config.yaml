@@ -98,7 +98,7 @@ benchmarks:
 
 # 查询配置
 queries:
-  dataset: "ms_marco"
+  dataset: "benchmark_dataset"
   num_queries: 10000
   top_k: 10
   

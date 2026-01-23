@@ -4,7 +4,7 @@
 large_scale_generation:
   model: "qwen2.5-0.6b"
   target_size: 50000000  # 5000万
-  source_dataset: "ms_marco"  # 870万基础数据
+  source_dataset: "benchmark_dataset"  # 基础数据集
   sampling_strategy: "repeat_with_noise"  # 重复采样并添加轻微噪声
   batch_size: 32
   output_file: "vector_cache/qwen2.5-0.6b-50m.h5"

@@ -16,7 +16,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from phase1_embedding.models.xinference_client import XinferenceClient
-from phase1_embedding.data.ms_marco_loader import MSMARCOLoader
+from phase1_embedding.data.dataset_loader import DatasetLoader
 from phase1_embedding.benchmarks.inference_benchmark import InferenceBenchmark
 from phase1_embedding.report_generator import Phase1ReportGenerator
 
@@ -141,11 +141,14 @@ def main():
         logger.info(f"\nPreparing dataset: {dataset_config['name']}")
         logger.info(f"  Target size: {dataset_config['sample_size']} documents")
         
-        loader = MSMARCOLoader(data_dir=dataset_config["path"])
+        loader = DatasetLoader(data_dir=dataset_config["path"])
         
-        # 下载数据集（如果需要）
-        if not loader.download_collection():
-            raise RuntimeError("Failed to download MS MARCO dataset")
+        # 检查数据集是否存在
+        if not loader.check_dataset():
+            raise RuntimeError(
+                "Dataset not found. Please prepare dataset first:\n"
+                "  cd datasets/scripts && ./quick_start.sh 100000"
+            )
         
         # 采样文档
         documents = loader.sample_documents(
