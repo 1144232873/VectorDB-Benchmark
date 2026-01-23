@@ -1,0 +1,24 @@
+# 忽略所有原始数据文件
+raw/
+
+# 忽略所有处理后的 TSV 文件（太大）
+processed/*.tsv
+processed/*.csv
+processed/*.json
+processed/*.parquet
+
+# 保留目录结构
+!processed/.gitkeep
+
+# 允许小的示例文件
+!processed/example-*.tsv
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 临时文件
+*.tmp
+*.log
+*.bak

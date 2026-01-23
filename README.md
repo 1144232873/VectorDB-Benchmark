@@ -40,6 +40,7 @@ rsync -avz --exclude '__pycache__' \
 ### 2. 运行阶段一：向量生成测试 (17-26小时)
 
 ```bash
+# 在终端窗口1中运行
 ssh -p 2222 root@192.168.1.51
 cd ~/VectorDB-Benchmark/phase1_embedding
 
@@ -48,19 +49,21 @@ uv venv
 source .venv/bin/activate
 uv pip install -e .
 
-# 后台运行
-screen -S phase1
+# 运行测试
 python run_phase1.py --config ../config/phase1_config.yaml
-# Ctrl+A+D 退出，测试继续运行
 
-# 监控进度
-tail -f ../logs/phase1.log
+# 可选：后台运行（可以关闭SSH连接）
+nohup python run_phase1.py --config ../config/phase1_config.yaml > ../logs/phase1.log 2>&1 &
+
+# 在新窗口中监控进度
+tail -f ~/VectorDB-Benchmark/logs/phase1.log
 watch -n 1 nvidia-smi
 ```
 
 ### 3. 运行阶段二：向量搜索测试 (6-8小时)
 
 ```bash
+# 在新的终端窗口中运行
 cd ~/VectorDB-Benchmark/phase2_search
 
 # 启动数据库
@@ -72,9 +75,10 @@ source .venv/bin/activate
 uv pip install -e .
 
 # 运行测试
-screen -S phase2
 python run_phase2.py --config ../config/phase2_config.yaml
-# Ctrl+A+D 退出
+
+# 可选：后台运行
+nohup python run_phase2.py --config ../config/phase2_config.yaml > ../logs/phase2.log 2>&1 &
 ```
 
 ### 4. 查看报告
@@ -119,7 +123,7 @@ scp -P 2222 root@192.168.1.51:~/VectorDB-Benchmark/phase1_results/*.html ./repor
 ## 🔧 常用命令
 
 ```bash
-# 连接
+# 连接（在多个终端窗口中打开）
 ssh -p 2222 root@192.168.1.51
 
 # 查看日志
@@ -128,8 +132,11 @@ tail -f ~/VectorDB-Benchmark/logs/phase1.log
 # 查看 GPU
 nvidia-smi
 
-# 重连测试
-screen -r phase1  # 或 phase2
+# 查看运行中的任务
+ps aux | grep python
+
+# 停止后台任务
+kill <PID>
 
 # 下载报告
 scp -P 2222 root@192.168.1.51:~/VectorDB-Benchmark/phase1_results/*.html ./
@@ -143,6 +150,18 @@ VectorDB-Benchmark/
 │   ├── phase1_config.yaml       # 阶段一配置
 │   ├── phase2a_config.yaml      # 阶段二A配置
 │   └── phase2b_config.yaml      # 阶段二B配置
+│
+├── datasets/                    # 数据集管理（新增）
+│   ├── raw/                     # 原始数据存储
+│   ├── processed/               # 转换后的TSV数据
+│   ├── scripts/                 # 数据处理工具
+│   │   ├── convert_to_tsv.py   # 格式转换
+│   │   ├── validate_tsv.py     # 格式校验
+│   │   ├── prepare_dataset.sh  # 一键准备
+│   │   ├── generate_test_data.py # 快速生成测试数据
+│   │   └── quick_start.sh      # 快速开始
+│   ├── README.md                # 使用说明
+│   └── EXAMPLES.md              # 使用示例
 │
 ├── phase1_embedding/            # 阶段一：向量生成
 │   ├── models/                  # 模型客户端
@@ -194,9 +213,9 @@ docker-compose logs elasticsearch
 docker-compose restart
 docker system prune -f
 
-# Screen 会话
-screen -ls
-screen -r phase1
+# 查看运行中的任务
+ps aux | grep python
+ps aux | grep run_phase
 ```
 
 ## 📖 详细文档

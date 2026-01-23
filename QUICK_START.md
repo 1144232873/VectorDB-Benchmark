@@ -71,8 +71,7 @@ curl http://localhost:9997/v1/models
 ### 4. 运行Phase 1测试 (9小时)
 
 ```bash
-# 后台运行
-screen -S phase1
+# 在终端窗口中运行
 cd ~/VectorDB-Benchmark/phase1_embedding
 source .venv/bin/activate
 
@@ -82,20 +81,21 @@ python run_phase1.py --config ../config/phase1_config.yaml
 # 或测试单个模型（快速验证）
 python run_phase1.py --config ../config/phase1_config.yaml --models bge-base-zh-v1.5
 
-# Ctrl+A+D 退出screen，测试继续运行
+# 可选：后台运行（可以关闭SSH连接）
+nohup python run_phase1.py --config ../config/phase1_config.yaml > ../logs/phase1.log 2>&1 &
 ```
 
 ### 5. 监控进度
 
 ```bash
-# 查看日志
+# 在新的终端窗口中查看日志
 tail -f ~/VectorDB-Benchmark/logs/phase1.log
 
-# 查看GPU
+# 在另一个窗口中查看GPU
 watch -n 1 nvidia-smi
 
-# 重新连接
-screen -r phase1
+# 查看运行中的任务
+ps aux | grep python
 
 # 查看生成的向量缓存
 ls -lh ~/VectorDB-Benchmark/vector_cache/
@@ -242,7 +242,7 @@ python -m phase1_embedding.cache.vector_cache
 A: 完整5个模型测试约9小时。单个模型测试约30分钟-5小时不等（取决于模型大小）。
 
 **Q: 可以中断后继续吗？**
-A: 当前版本不支持断点续传。建议使用screen在后台运行，避免网络中断。
+A: 当前版本不支持断点续传。建议使用 nohup 在后台运行，避免网络中断。
 
 **Q: 如何只测试特定模型？**
 A: 使用 `--models` 参数，如：`python run_phase1.py --models qwen2.5-0.6b qwen2.5-4b`

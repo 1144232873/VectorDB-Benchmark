@@ -91,13 +91,29 @@ uv --version
 
 ## 6. 常用命令
 
-### 查看运行中的任务
+### 多窗口运行任务（推荐）
+
+**方式1：使用多个 SSH 连接（最简单）**
+
+在您的本地终端软件（如 Windows Terminal, MobaXterm, Tabby 等）中：
+- **窗口1**：`ssh benchmark` → 运行 Phase 1
+- **窗口2**：`ssh benchmark` → 运行 Phase 2a  
+- **窗口3**：`ssh benchmark` → 运行 Phase 2b
+- **窗口4**：`ssh benchmark` → 监控资源（nvidia-smi, htop）
+
+**方式2：使用后台运行**
 
 ```bash
-screen -ls
-screen -r phase1
-screen -r phase2a
-screen -r phase2b
+# 启动任务（输出到日志文件）
+nohup python run_phase1.py > logs/phase1.log 2>&1 &
+nohup python run_phase2a.py > logs/phase2a.log 2>&1 &
+nohup python run_phase2b.py > logs/phase2b.log 2>&1 &
+
+# 查看运行中的 Python 进程
+ps aux | grep python
+
+# 如需停止任务
+kill <PID>
 ```
 
 ### 查看日志
