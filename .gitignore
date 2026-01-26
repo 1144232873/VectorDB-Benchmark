@@ -47,6 +47,7 @@ vector_cache/
 *.h5
 phase1_results/
 phase2_results/
+quick_test_results/
 data/dataset/
 datasets/raw/
 datasets/processed/*.tsv

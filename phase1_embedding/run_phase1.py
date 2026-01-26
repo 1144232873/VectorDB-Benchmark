@@ -3,9 +3,11 @@
 Phase 1: 向量生成性能测试 - 主程序
 
 串行测试4个嵌入模型的推理性能并生成300万向量缓存
+支持同步和异步两种模式
 """
 
 import argparse
+import asyncio
 import logging
 import sys
 import yaml
@@ -16,8 +18,10 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from phase1_embedding.models.xinference_client import XinferenceClient
+from phase1_embedding.models.async_xinference_client import AsyncXinferenceClient
 from phase1_embedding.data.dataset_loader import DatasetLoader
 from phase1_embedding.benchmarks.inference_benchmark import InferenceBenchmark
+from phase1_embedding.benchmarks.async_inference_benchmark import AsyncInferenceBenchmark
 from phase1_embedding.report_generator import Phase1ReportGenerator
 
 
@@ -75,16 +79,106 @@ def load_config(config_file: str) -> dict:
     return config
 
 
+async def main_async(args, config, logger, validated_models, documents, test_texts):
+    """异步主函数"""
+    xinference_config = config["xinference"]
+    async_config = config.get("async_inference", {})
+    report_config = config.get("report", {})
+    cache_config = config.get("vector_cache", {})
+    serial_config = config.get("serial_execution", {})
+    
+    # 应用预设（如果指定）
+    if args.async_preset and "presets" in async_config:
+        preset = async_config["presets"].get(args.async_preset)
+        if preset:
+            logger.info(f"Applying async preset: {args.async_preset}")
+            async_config.update(preset)
+    
+    # 初始化异步客户端
+    concurrent_requests = async_config.get("concurrent_requests", 8)
+    connection_pool_size = async_config.get("connection_pool_size", 32)
+    
+    logger.info(f"\nInitializing async Xinference client...")
+    logger.info(f"  Concurrent requests: {concurrent_requests}")
+    logger.info(f"  Connection pool size: {connection_pool_size}")
+    
+    async with AsyncXinferenceClient(
+        host=xinference_config["host"],
+        port=xinference_config["port"],
+        timeout=xinference_config.get("timeout", 300),
+        max_concurrent_requests=concurrent_requests,
+        connection_pool_size=connection_pool_size
+    ) as async_client:
+        
+        if not await async_client.check_health():
+            raise RuntimeError("Xinference service is not available")
+        
+        logger.info("✓ Async Xinference client connected")
+        
+        # 初始化异步基准测试
+        benchmark = AsyncInferenceBenchmark(
+            async_client=async_client,
+            output_dir=report_config.get("output_dir", "phase1_results")
+        )
+        
+        # 运行异步基准测试
+        logger.info(f"\nStarting async serial benchmark...")
+        logger.info(f"  Concurrent requests: {concurrent_requests}")
+        logger.info(f"  Auto batch tuning: {async_config.get('auto_batch_tuning', True)}")
+        logger.info(f"  Pause between models: {serial_config.get('pause_between_models', 5)}s")
+        
+        await benchmark.run_serial_benchmark_async(
+            models=validated_models,
+            test_texts=test_texts,
+            documents=documents,
+            cache_dir=cache_config.get("output_dir", "vector_cache"),
+            auto_tune_batch_size=async_config.get("auto_batch_tuning", True),
+            pause_between_models=serial_config.get("pause_between_models", 5)
+        )
+        
+        # 保存结果
+        logger.info(f"\nSaving async results...")
+        benchmark.save_results()
+        
+        # 打印摘要
+        logger.info("\n" + "="*80)
+        logger.info("ASYNC BENCHMARK SUMMARY")
+        logger.info("="*80)
+        
+        summary = benchmark.get_summary()
+        for model_summary in summary["models"]:
+            logger.info(f"\n{model_summary['name']}:")
+            logger.info(f"  Throughput: {model_summary['throughput_docs_per_sec']:.2f} docs/s")
+            logger.info(f"  Optimal batch size: {model_summary['optimal_batch_size']}")
+            logger.info(f"  Concurrent requests: {model_summary['concurrent_requests']}")
+            logger.info(f"  GPU peak memory: {model_summary['gpu_peak_memory_mb']:.2f} MB")
+            logger.info(f"  Time for 3M vectors: {model_summary['time_for_3m_vectors_hours']:.2f} hours")
+            if model_summary.get('speedup_factor'):
+                logger.info(f"  Speedup vs sync: {model_summary['speedup_factor']:.2f}x")
+
+
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description="Phase 1: 向量生成性能测试"
+        description="Phase 1: 向量生成性能测试（支持同步/异步模式）"
     )
     parser.add_argument(
         "--config",
         type=str,
         default="../config/phase1_config.yaml",
         help="配置文件路径"
+    )
+    parser.add_argument(
+        "--async",
+        dest="async_mode",
+        action="store_true",
+        help="启用异步并发模式（显著提升GPU利用率和吞吐量）"
+    )
+    parser.add_argument(
+        "--async-preset",
+        type=str,
+        choices=["conservative", "balanced", "aggressive"],
+        help="异步模式预设：conservative(稳定), balanced(推荐), aggressive(极限性能)"
     )
     parser.add_argument(
         "--serial",
@@ -127,6 +221,7 @@ def main():
     
     logger.info("="*80)
     logger.info("Phase 1: 向量生成性能测试")
+    logger.info(f"Mode: {'ASYNC (High Performance)' if args.async_mode else 'SYNC (Standard)'}")
     logger.info("="*80)
     logger.info(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -148,7 +243,20 @@ def main():
         return 0
     
     try:
-        # 1. 初始化Xinference客户端
+        # 检查是否需要安装依赖
+        if args.async_mode:
+            try:
+                import httpx
+            except ImportError:
+                logger.error("Async mode requires 'httpx' package. Install it with: pip install httpx")
+                return 1
+            
+            try:
+                from tqdm.asyncio import tqdm as async_tqdm
+            except ImportError:
+                logger.warning("'tqdm' asyncio support not found. Install with: pip install tqdm")
+        
+        # 1. 初始化Xinference客户端（仅用于模型验证）
         xinference_config = config["xinference"]
         logger.info(f"\nConnecting to Xinference at {xinference_config['host']}:{xinference_config['port']}")
         
@@ -274,62 +382,69 @@ def main():
         test_texts = [doc["text"] for doc in documents[:1000]]
         logger.info(f"✓ Test texts prepared: {len(test_texts)} samples")
         
-        # 3. 初始化基准测试
-        report_config = config.get("report", {})
-        benchmark = InferenceBenchmark(
-            xinference_client=client,
-            output_dir=report_config.get("output_dir", "phase1_results")
-        )
-        
-        # 4. 使用已验证的模型列表（已在前面验证）
+        # 3. 使用已验证的模型列表
         logger.info(f"\nModels to test: {len(validated_models)}")
         for model in validated_models:
             logger.info(f"  - {model['name']} ({model['dimensions']}维, model_id: {model['model_name']})")
         
-        # 5. 运行串行基准测试
-        serial_config = config.get("serial_execution", {})
-        cache_config = config.get("vector_cache", {})
-        
-        logger.info(f"\nStarting serial benchmark...")
-        logger.info(f"  Cleanup between models: {serial_config.get('cleanup_between_models', True)}")
-        logger.info(f"  Pause between models: {serial_config.get('pause_between_models', 5)}s")
-        
-        benchmark.run_serial_benchmark(
-            models=validated_models,
-            test_texts=test_texts,
-            documents=documents,
-            cache_dir=cache_config.get("output_dir", "vector_cache"),
-            cleanup_between_models=serial_config.get("cleanup_between_models", True),
-            pause_between_models=serial_config.get("pause_between_models", 5)
-        )
-        
-        # 6. 保存最终结果
-        logger.info(f"\nSaving final results...")
-        benchmark.save_results()
-        
-        # 7. 生成HTML报告
-        logger.info(f"\nGenerating HTML report...")
-        report_generator = Phase1ReportGenerator(
-            results_file=str(Path(report_config.get("output_dir", "phase1_results")) / "benchmark_results.json"),
-            output_dir=report_config.get("output_dir", "phase1_results")
-        )
-        report_path = report_generator.generate_report()
-        logger.info(f"✓ HTML report generated: {report_path}")
-        
-        # 8. 打印摘要
-        logger.info("\n" + "="*80)
-        logger.info("BENCHMARK SUMMARY")
-        logger.info("="*80)
-        
-        summary = benchmark.get_summary()
-        for model_summary in summary["models"]:
-            logger.info(f"\n{model_summary['name']}:")
-            logger.info(f"  Throughput: {model_summary['throughput_docs_per_sec']:.2f} docs/s")
-            logger.info(f"  Single latency (P99): {model_summary['single_latency_p99_ms']:.2f} ms")
-            logger.info(f"  Optimal batch size: {model_summary['optimal_batch_size']}")
-            logger.info(f"  GPU peak memory: {model_summary['gpu_peak_memory_mb']:.2f} MB")
-            logger.info(f"  Time for 3M vectors: {model_summary['time_for_3m_vectors_hours']:.2f} hours")
-            logger.info(f"  Time for 100M vectors (estimated): {model_summary['time_for_100m_vectors_hours']:.1f} hours")
+        # 4. 根据模式选择执行路径
+        if args.async_mode:
+            # 异步模式
+            logger.info("\n🚀 Running in ASYNC mode (high performance)")
+            asyncio.run(main_async(args, config, logger, validated_models, documents, test_texts))
+        else:
+            # 同步模式
+            logger.info("\n⚙️  Running in SYNC mode (standard)")
+            
+            report_config = config.get("report", {})
+            benchmark = InferenceBenchmark(
+                xinference_client=client,
+                output_dir=report_config.get("output_dir", "phase1_results")
+            )
+            
+            serial_config = config.get("serial_execution", {})
+            cache_config = config.get("vector_cache", {})
+            
+            logger.info(f"\nStarting serial benchmark...")
+            logger.info(f"  Cleanup between models: {serial_config.get('cleanup_between_models', True)}")
+            logger.info(f"  Pause between models: {serial_config.get('pause_between_models', 5)}s")
+            
+            benchmark.run_serial_benchmark(
+                models=validated_models,
+                test_texts=test_texts,
+                documents=documents,
+                cache_dir=cache_config.get("output_dir", "vector_cache"),
+                cleanup_between_models=serial_config.get("cleanup_between_models", True),
+                pause_between_models=serial_config.get("pause_between_models", 5)
+            )
+            
+            # 保存结果
+            logger.info(f"\nSaving final results...")
+            benchmark.save_results()
+            
+            # 生成HTML报告
+            logger.info(f"\nGenerating HTML report...")
+            report_generator = Phase1ReportGenerator(
+                results_file=str(Path(report_config.get("output_dir", "phase1_results")) / "benchmark_results.json"),
+                output_dir=report_config.get("output_dir", "phase1_results")
+            )
+            report_path = report_generator.generate_report()
+            logger.info(f"✓ HTML report generated: {report_path}")
+            
+            # 打印摘要
+            logger.info("\n" + "="*80)
+            logger.info("BENCHMARK SUMMARY")
+            logger.info("="*80)
+            
+            summary = benchmark.get_summary()
+            for model_summary in summary["models"]:
+                logger.info(f"\n{model_summary['name']}:")
+                logger.info(f"  Throughput: {model_summary['throughput_docs_per_sec']:.2f} docs/s")
+                logger.info(f"  Single latency (P99): {model_summary['single_latency_p99_ms']:.2f} ms")
+                logger.info(f"  Optimal batch size: {model_summary['optimal_batch_size']}")
+                logger.info(f"  GPU peak memory: {model_summary['gpu_peak_memory_mb']:.2f} MB")
+                logger.info(f"  Time for 3M vectors: {model_summary['time_for_3m_vectors_hours']:.2f} hours")
+                logger.info(f"  Time for 100M vectors (estimated): {model_summary['time_for_100m_vectors_hours']:.1f} hours")
         
         logger.info("\n" + "="*80)
         logger.info("✓ Phase 1 completed successfully!")
