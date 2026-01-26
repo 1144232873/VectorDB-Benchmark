@@ -43,15 +43,15 @@ uv.lock
 # Project specific
 logs/
 *.log
-vector_cache/
 *.h5
-phase1_results/
-phase2_results/
-quick_test_results/
 data/dataset/
 datasets/raw/
 datasets/processed/*.tsv
 .env
+
+# Phase results (unified)
+phase1_embedding/results/
+phase2_results/
 
 # Jupyter
 .ipynb_checkpoints/

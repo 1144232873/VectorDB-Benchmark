@@ -6,15 +6,15 @@
 
 测试对比 **Elasticsearch 9.1、Milvus 2.5 (CPU/GPU)、Qdrant 1.12**，为包含**数据湖(亿级)、团队库(百万级)、个人库(万级)**的知识管理系统选择最优方案。
 
-## ⚡ 性能优化亮点
+## ⚡ 性能优化
 
-**Phase 1 向量生成已优化：**
-- ✅ GPU 利用率：20-50% → **80-95%**
-- ✅ 吞吐量提升：**6-10 倍**
-- ✅ 3M 向量时间：**减少 80%+**
+**Phase 1 已采用异步极限性能模式：**
+- ✅ GPU 利用率：80-95%（异步并发 + 大批次）
+- ✅ 吞吐量提升：6-10 倍
+- ✅ 并发请求：16 个同时发送
+- ✅ 批次大小：自动调优到 2048
 
-使用异步并发模式：`python run_phase1.py --async`  
-详细说明：[README_ASYNC_OPTIMIZATION.md](README_ASYNC_OPTIMIZATION.md)
+默认已启用最优配置，无需额外参数
 
 ## 🔐 远程机器连接
 
@@ -67,23 +67,21 @@ cd ~/VectorDB-Benchmark/phase1_embedding
 
 # 环境配置（首次）
 uv venv && source .venv/bin/activate
-uv pip install -e .
+uv add 'httpx[http2]'  # 添加异步依赖
+uv sync
 
-# 🚀 异步高性能模式（推荐，GPU利用率80-95%）
-./quick_async_test.sh                      # 快速验证（2分钟）
-python run_phase1.py --async --batch 1     # 完整测试
-
-# 标准同步模式（对比用）
-python run_phase1.py --batch 1
+# 运行基准测试（默认异步极限性能）
+python benchmark.py --batch 1        # 测试第一批模型
 
 # 查看可用批次
-python run_phase1.py --list-batches
+python benchmark.py --list-batches
+
+# 测试指定模型
+python benchmark.py --models bge-m3 qwen3-0.6b
 
 # 监控 GPU（另开终端）
 watch -n 1 nvidia-smi
 ```
-
-**异步模式使用说明：** [README_ASYNC_OPTIMIZATION.md](README_ASYNC_OPTIMIZATION.md)
 
 ### 4. 运行阶段二：向量搜索测试
 
@@ -202,7 +200,7 @@ VectorDB-Benchmark/
 │   │   └── vector_cache.py
 │   ├── pyproject.toml          # uv依赖配置
 │   ├── report_generator.py     # 报告生成
-│   └── run_phase1.py           # 主入口
+│   └── benchmark.py            # 基准测试入口
 │
 ├── phase2_search/               # 阶段二：向量搜索
 │   ├── clients/                 # 数据库客户端
@@ -230,13 +228,13 @@ VectorDB-Benchmark/
 
 ```bash
 # 1. 查看可用的批次配置
-python run_phase1.py --config ../config/phase1_config.yaml --list-batches
+python benchmark.py --list-batches
 
 # 2. 运行第一批（较小的模型）
-python run_phase1.py --config ../config/phase1_config.yaml --batch 1
+python benchmark.py --batch 1
 
 # 3. 等待第一批完成后，运行第二批（较大的模型）
-python run_phase1.py --config ../config/phase1_config.yaml --batch 2
+python benchmark.py --batch 2
 ```
 
 批次配置在 `config/phase1_config.yaml` 中的 `batch_groups` 部分定义。可以根据显存情况调整批次分组。

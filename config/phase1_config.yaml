@@ -43,75 +43,38 @@ dataset:
   max_length: 512  # 最大文本长度
   min_length: 10  # 最小文本长度
 
-# 推理性能测试配置
-inference_benchmark:
-  # 单样本延迟测试
-  latency_test:
-    num_samples: 1000
-    warmup_samples: 100
-    
-  # 批处理吞吐量测试
-  throughput_test:
-    num_batches: 100
-    warmup_batches: 10
-    
-  # 显存监控
-  gpu_monitor:
-    interval: 1  # 秒
-    
 # 向量缓存配置
 vector_cache:
   format: "hdf5"
-  output_dir: "vector_cache"
+  output_dir: "results/cache"
   compression: "gzip"
   compression_level: 4
   chunk_size: 10000
 
 # 报告生成配置
 report:
-  output_dir: "phase1_results"
+  output_dir: "results"
   format: "html"
   include_plots: true
-  plot_style: "plotly"  # 交互式图表
+  plot_style: "plotly"
   
   # 推算配置
   extrapolate:
-    scales: [5000000, 10000000, 50000000, 100000000]  # 500万、1000万、5000万、1亿
+    scales: [5000000, 10000000, 50000000, 100000000]
     
 # 日志配置
 logging:
-  level: "INFO"
+  level: "WARNING"  # 减少日志刷屏
   log_dir: "logs"
   log_file: "phase1.log"
-  console_output: true
-  file_output: true
 
-# 串行执行配置
-serial_execution:
-  enabled: true  # 强制串行
-  cleanup_between_models: true  # 模型间清理显存
-  pause_between_models: 5  # 模型间暂停秒数
-
-# 异步并发配置（用于高性能模式）
-async_inference:
-  enabled: false  # 默认禁用，使用 --async 参数启用
-  concurrent_requests: 8  # 并发请求数（推荐：4-16）
+# 性能配置（极限性能，榨干GPU）
+performance:
+  concurrent_requests: 16  # 并发请求数
   max_batch_size: 2048  # 最大batch size
-  auto_batch_tuning: true  # 自动调优batch size
-  connection_pool_size: 32  # HTTP连接池大小
-  keepalive_timeout: 300  # Keep-Alive超时（秒）
-  
-  # 性能方案预设（可选）
-  presets:
-    conservative:  # 保守方案（稳定性优先）
-      concurrent_requests: 4
-      max_batch_size: 512
-    balanced:  # 平衡方案（推荐）
-      concurrent_requests: 8
-      max_batch_size: 1024
-    aggressive:  # 激进方案（性能优先）
-      concurrent_requests: 16
-      max_batch_size: 2048
+  auto_batch_tuning: true  # 自动调优
+  connection_pool_size: 32  # HTTP连接池
+  pause_between_models: 5  # 模型间暂停秒数
 
 # 分批测试配置（用于显存不足时）
 # 如果定义了批次，可以通过 --batch 参数指定要运行的批次
