@@ -33,7 +33,7 @@ read -p "按 Enter 继续，Ctrl+C 取消..."
 echo ""
 echo -e "${GREEN}[1/4] 生成测试数据...${NC}"
 python3 "$SCRIPT_DIR/generate_test_data.py" \
-  "$SCRIPT_DIR/../processed/quick-test.tsv" \
+  "$SCRIPT_DIR/../processed/collection.tsv" \
   -n ${NUM_SAMPLES} \
   -l zh \
   --min-length 50 \
@@ -43,13 +43,13 @@ python3 "$SCRIPT_DIR/generate_test_data.py" \
 echo ""
 echo -e "${GREEN}[2/4] 校验数据格式...${NC}"
 python3 "$SCRIPT_DIR/validate_tsv.py" \
-  "$SCRIPT_DIR/../processed/quick-test.tsv" \
+  "$SCRIPT_DIR/../processed/collection.tsv" \
   --check-lines 1000
 
 # 3. 准备测试
 echo ""
 echo -e "${GREEN}[3/4] 准备测试环境...${NC}"
-bash "$SCRIPT_DIR/prepare_dataset.sh" quick-test.tsv
+echo "数据已生成到: $SCRIPT_DIR/../processed/collection.tsv"
 
 # 4. 显示指南
 echo ""
@@ -60,16 +60,20 @@ echo "  下一步操作"
 echo "=========================================="
 echo ""
 echo "1. 检查数据集："
-echo "   ls -lh $PROJECT_ROOT/phase1_embedding/data/dataset/collection.tsv"
+echo "   ls -lh $PROJECT_ROOT/datasets/processed/collection.tsv"
 echo ""
 echo "2. 查看数据样例："
-echo "   head -n 5 $PROJECT_ROOT/phase1_embedding/data/dataset/collection.tsv"
+echo "   head -n 5 $PROJECT_ROOT/datasets/processed/collection.tsv"
 echo ""
-echo "3. 运行基准测试："
+echo "3. 运行快速性能测试："
+echo "   cd $PROJECT_ROOT/phase1_embedding"
+echo "   python test_async_performance.py --mode both --num-docs 1000"
+echo ""
+echo "4. 运行完整基准测试："
 echo "   cd $PROJECT_ROOT/phase1_embedding"
 echo "   python run_phase1.py --config ../config/phase1_config.yaml"
 echo ""
-echo "4. 或后台运行（推荐）："
+echo "5. 或后台运行（推荐）："
 echo "   cd $PROJECT_ROOT/phase1_embedding"
 echo "   nohup python run_phase1.py --config ../config/phase1_config.yaml > ../logs/phase1.log 2>&1 &"
 echo "   tail -f ../logs/phase1.log"

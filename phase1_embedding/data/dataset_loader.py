@@ -32,7 +32,10 @@ class DatasetLoader:
             return True
         else:
             logger.error(f"Dataset not found: {self.collection_file}")
-            logger.error("Please prepare dataset using: datasets/scripts/quick_start.sh")
+            logger.error("Please generate dataset first:")
+            logger.error("  cd datasets/scripts && ./quick_start.sh 100000")
+            logger.error("Or rename existing file:")
+            logger.error(f"  mv {self.data_dir}/quick-test.tsv {self.collection_file}")
             return False
     
     def load_collection_iter(
@@ -51,10 +54,19 @@ class DatasetLoader:
             文档字典 {id, text}
         """
         if not self.collection_file.exists():
-            raise FileNotFoundError(
-                f"Dataset file not found: {self.collection_file}\n"
-                f"Please run: cd datasets/scripts && ./quick_start.sh 100000"
-            )
+            # 检查是否有旧的临时文件
+            quick_test_file = self.data_dir / "quick-test.tsv"
+            if quick_test_file.exists():
+                raise FileNotFoundError(
+                    f"Dataset file not found: {self.collection_file}\n"
+                    f"Found old temporary file: {quick_test_file}\n"
+                    f"Please rename it: mv {quick_test_file} {self.collection_file}"
+                )
+            else:
+                raise FileNotFoundError(
+                    f"Dataset file not found: {self.collection_file}\n"
+                    f"Please generate dataset: cd datasets/scripts && ./quick_start.sh 100000"
+                )
         
         with open(self.collection_file, 'r', encoding='utf-8') as f:
             for line in f:

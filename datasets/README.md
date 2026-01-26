@@ -4,15 +4,17 @@
 
 ```bash
 cd ~/VectorDB-Benchmark/datasets/scripts
+./quick_start.sh 100000  # 生成10万条测试数据
 
-# 一键生成测试数据并运行
-chmod +x quick_start.sh
-./quick_start.sh 100000  # 生成10万条中文测试数据
+# 检查数据状态（新）
+./check_dataset.sh
 ```
+
+> **重要**: 统一使用 `collection.tsv` 作为数据文件名。如有旧的 `quick-test.tsv`，请重命名：`mv quick-test.tsv collection.tsv`
 
 ## 📋 数据格式要求
 
-**文件位置**: `~/VectorDB-Benchmark/phase1_embedding/data/dataset/collection.tsv`
+**文件位置**: `datasets/processed/collection.tsv`
 
 **文件格式**: TSV (制表符分隔)
 ```tsv
@@ -36,7 +38,7 @@ chmod +x quick_start.sh
 
 ### 1. 生成测试数据
 ```bash
-python3 generate_test_data.py ../processed/test.tsv -n 100000 -l zh
+python3 generate_test_data.py ../processed/collection.tsv -n 100000 -l zh
 ```
 
 ### 2. 从 Hugging Face 下载
@@ -60,16 +62,12 @@ python3 convert_to_tsv.py --format parquet input.parquet ../processed/output.tsv
 
 ### 4. 校验数据
 ```bash
-python3 validate_tsv.py ../processed/your-dataset.tsv
+python3 validate_tsv.py ../processed/collection.tsv
 ```
 
-### 5. 切换数据集
+### 5. 检查数据状态
 ```bash
-# 列出可用数据集
-./prepare_dataset.sh
-
-# 切换到指定数据集
-./prepare_dataset.sh your-dataset.tsv
+./check_dataset.sh  # 显示文件信息和数据预览
 ```
 
 ## 📊 推荐数据集
@@ -80,17 +78,16 @@ python3 validate_tsv.py ../processed/your-dataset.tsv
 | Wikipedia-zh | 130万 | 中文 | Hugging Face |
 | 生成数据 | 任意 | 中英文 | generate_test_data.py |
 
-## 🔍 常用命令
+## 🔍 常见问题
 
+**Q: 找不到数据集文件？**
 ```bash
-# 检查当前数据集
-ls -l ~/VectorDB-Benchmark/phase1_embedding/data/dataset/collection.tsv
+cd datasets/scripts && ./quick_start.sh 100000
+```
 
-# 查看数据样例
-head -n 5 ~/VectorDB-Benchmark/phase1_embedding/data/dataset/collection.tsv
-
-# 统计行数
-wc -l ~/VectorDB-Benchmark/phase1_embedding/data/dataset/collection.tsv
+**Q: 有 quick-test.tsv 怎么办？**
+```bash
+cd datasets/processed && mv quick-test.tsv collection.tsv
 ```
 
 ## 📖 更多帮助
