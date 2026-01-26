@@ -119,6 +119,36 @@ class XinferenceClient:
                 logger.warning(f"Found similar model: '{available_id}' (config uses '{model_name}')")
                 return True, available_id
         
+        # 尝试更宽松的匹配：提取模型的核心名称（去掉组织名和版本号）
+        # 例如：BAAI/bge-m3 -> bge-m3, Qwen3-Embedding-0.6B -> qwen-embedding-0.6b
+        def extract_core_name(name: str) -> str:
+            # 去掉组织名（如 BAAI/, Qwen/）
+            parts = name.lower().split('/')
+            if len(parts) > 1:
+                name = parts[-1]
+            # 统一版本号：qwen2.5 和 qwen3 都视为 qwen（向后兼容）
+            name = name.replace('qwen2.5', 'qwen').replace('qwen3', 'qwen')
+            # 提取关键部分：模型类型和大小
+            # 例如：qwen-embedding-0.6b, bge-m3
+            return name
+        
+        config_core = extract_core_name(model_name)
+        for available_id in available_models:
+            available_core = extract_core_name(available_id)
+            # 如果核心名称匹配（允许版本号差异，如 qwen2.5 和 qwen3，向后兼容）
+            if config_core == available_core:
+                logger.warning(f"Found matching model by core name: '{available_id}' (config uses '{model_name}')")
+                return True, available_id
+            
+            # 特殊处理：如果都是embedding模型，且大小匹配
+            if 'embedding' in config_core and 'embedding' in available_core:
+                # 提取大小标识（0.6b, 4b, 8b, m3等）
+                config_sizes = [s for s in ['0.6b', '4b', '8b', 'm3'] if s in config_core]
+                available_sizes = [s for s in ['0.6b', '4b', '8b', 'm3'] if s in available_core]
+                if config_sizes and available_sizes and config_sizes[0] == available_sizes[0]:
+                    logger.warning(f"Found matching embedding model by size: '{available_id}' (config uses '{model_name}')")
+                    return True, available_id
+        
         return False, None
     
     def embed_single(self, text: str, model: str) -> Optional[np.ndarray]:

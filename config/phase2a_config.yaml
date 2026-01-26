@@ -1,4 +1,4 @@
-# 阶段二A：常规搜索性能测试配置 (300万×5模型×4数据库)
+# 阶段二A：常规搜索性能测试配置 (300万×4模型×4数据库)
 
 # 数据库配置
 databases:
@@ -51,13 +51,14 @@ databases:
       hnsw_ef: 128
 
 # 向量缓存配置
+# 注意：模型名称应该与 phase1 中生成的缓存文件名匹配（即 models 配置中的 name 字段）
 vector_cache:
   input_dir: "vector_cache"
   models:
     - "bge-m3"
-    - "qwen2.5-0.6b"
-    - "qwen2.5-4b"
-    - "qwen2.5-8b"
+    - "qwen3-0.6b"
+    - "qwen3-4b"
+    - "qwen3-8b"
 
 # 测试配置
 benchmarks:

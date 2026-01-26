@@ -272,7 +272,7 @@ class Phase1ReportGenerator:
         </div>
         <div class="metric-card">
             <h3>最高质量</h3>
-            <div class="value">Qwen2.5-8B</div>
+            <div class="value">Qwen3-8B</div>
             <div class="unit">MTEB 72.8分</div>
         </div>
         <div class="metric-card">
@@ -282,7 +282,7 @@ class Phase1ReportGenerator:
         </div>
         <div class="metric-card">
             <h3>推荐平衡</h3>
-            <div class="value">Qwen2.5-0.6B</div>
+            <div class="value">Qwen3-0.6B</div>
             <div class="unit">速度/质量/成本最优</div>
         </div>
         """
@@ -451,7 +451,7 @@ class Phase1ReportGenerator:
                 <li>支持多语言，质量较好</li>
             </ul>
             
-            <p><strong>⚖️ 平衡选择：</strong> Qwen2.5-0.6B (推荐)</p>
+            <p><strong>⚖️ 平衡选择：</strong> Qwen3-0.6B (推荐)</p>
             <ul>
                 <li>速度、质量、成本的最佳平衡点</li>
                 <li>MTEB分数 ~67，接近BGE-M3</li>
@@ -459,9 +459,12 @@ class Phase1ReportGenerator:
                 <li>显存占用适中（~2.3GB）</li>
             </ul>
             
-            <p><strong>🎯 追求质量：</strong> Qwen2.5-8B</p>
+            <p><strong>🎯 追求质量：</strong> Qwen3-4B / Qwen3-8B</p>
             <ul>
-                <li>最高质量（MTEB 72.8分）</li>
+                <li><strong>Qwen3-4B</strong>：质量与速度的折中（MTEB ~70分）</li>
+                <li>亿级向量约60-80小时，质量提升明显</li>
+                <li>显存占用较大（~8-10GB）</li>
+                <li><strong>Qwen3-8B</strong>：最高质量（MTEB 72.8分）</li>
                 <li>适合对检索质量要求极高的场景</li>
                 <li>亿级向量约154小时，需要耐心</li>
                 <li>显存占用最大（~16GB）</li>
@@ -471,8 +474,9 @@ class Phase1ReportGenerator:
             <p>基于 RTX 4090 24GB GPU @ $3/hour：</p>
             <ul>
                 <li>BGE-M3: 1亿向量 ≈ $60-80</li>
-                <li>Qwen2.5-0.6B: 1亿向量 ≈ $84</li>
-                <li>Qwen2.5-8B: 1亿向量 ≈ $462</li>
+                <li>Qwen3-0.6B: 1亿向量 ≈ $84</li>
+                <li>Qwen3-4B: 1亿向量 ≈ $180-240</li>
+                <li>Qwen3-8B: 1亿向量 ≈ $462</li>
             </ul>
         </div>
         """

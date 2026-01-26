@@ -75,7 +75,7 @@ python run_phase1.py --config ../config/phase1_config.yaml --batch 1
 python run_phase1.py --config ../config/phase1_config.yaml --batch 2
 
 # 方式3：指定特定模型
-python run_phase1.py --config ../config/phase1_config.yaml --models bge-m3 qwen2.5-0.6b
+python run_phase1.py --config ../config/phase1_config.yaml --models bge-m3 qwen3-0.6b
 
 # 可选：后台运行（可以关闭SSH连接）
 nohup python run_phase1.py --config ../config/phase1_config.yaml --batch 1 > ../logs/phase1_batch1.log 2>&1 &
@@ -122,7 +122,7 @@ scp -P 2222 root@192.168.1.51:~/VectorDB-Benchmark/phase1_results/*.html ./repor
 ## 📊 测试内容
 
 ### 阶段一：向量生成测试
-- 测试4个嵌入模型：BGE-M3、Qwen2.5-Embedding (0.6B/4B/8B)
+- 测试4个嵌入模型：BGE-M3、Qwen3-Embedding (0.6B/4B/8B)
 - 评估推理速度、显存占用、向量质量
 - 输出：模型对比报告 + 向量缓存(~300GB)
 
@@ -258,7 +258,7 @@ ssh -p 2222 root@192.168.1.51 "curl -s http://localhost:9997/v1/models | python3
 ```
 
 **常见问题**：
-- 配置中的模型名称（如 `Qwen/Qwen2.5-Embedding-8B`）与 Xinference 中的实际模型ID不一致
+- 配置中的模型名称（如 `Qwen3-Embedding-8B`）与 Xinference 中的实际模型ID不一致
 - 代码会自动尝试匹配相似的模型名称
 - 如果自动匹配失败，请检查配置文件 `config/phase1_config.yaml` 中的 `model_name` 字段，确保与 Xinference 中的模型ID一致
 
