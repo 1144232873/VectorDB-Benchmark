@@ -21,7 +21,11 @@
 
 ### 1. 安装依赖
 ```bash
-pip install httpx aiofiles tqdm
+# 异步优化所需的依赖已集成到 pyproject.toml 中
+# 如果已经安装过环境，无需额外操作
+# 如果是首次安装，请按照 README.md 的说明执行：
+uv venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+uv pip install -e .
 ```
 
 ### 2. 快速验证（2分钟）
