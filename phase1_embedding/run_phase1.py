@@ -2,7 +2,7 @@
 """
 Phase 1: 向量生成性能测试 - 主程序
 
-串行测试5个嵌入模型的推理性能并生成300万向量缓存
+串行测试4个嵌入模型的推理性能并生成300万向量缓存
 """
 
 import argparse
@@ -98,6 +98,16 @@ def main():
         nargs="+",
         help="指定要测试的模型（默认测试所有）"
     )
+    parser.add_argument(
+        "--batch",
+        type=int,
+        help="指定要运行的批次ID（如果配置文件中定义了batch_groups）"
+    )
+    parser.add_argument(
+        "--list-batches",
+        action="store_true",
+        help="列出所有可用的批次并退出"
+    )
     
     args = parser.parse_args()
     
@@ -120,6 +130,23 @@ def main():
     logger.info("="*80)
     logger.info(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
+    # 如果指定了 --list-batches，列出所有批次并退出（不需要连接Xinference）
+    if args.list_batches:
+        batch_groups = config.get("batch_groups", [])
+        if not batch_groups:
+            print("No batch_groups defined in config file")
+            return 0
+        
+        print("\nAvailable batches:")
+        for batch in batch_groups:
+            batch_id = batch.get("batch_id", "?")
+            batch_name = batch.get("batch_name", "unnamed")
+            model_names = batch.get("model_names", [])
+            print(f"\n  Batch {batch_id}: {batch_name}")
+            print(f"    Models: {', '.join(model_names)}")
+            print(f"    Run with: python run_phase1.py --config {args.config} --batch {batch_id}")
+        return 0
+    
     try:
         # 1. 初始化Xinference客户端
         xinference_config = config["xinference"]
@@ -135,6 +162,91 @@ def main():
             raise RuntimeError("Xinference service is not available")
         
         logger.info("✓ Xinference client connected")
+        
+        # 1.5. 处理批次配置
+        all_models = config["models"]
+        models_to_test = all_models
+        
+        # 如果指定了批次，则过滤模型
+        if args.batch is not None:
+            batch_groups = config.get("batch_groups", [])
+            if not batch_groups:
+                logger.error("--batch specified but no batch_groups defined in config file")
+                return 1
+            
+            # 查找指定的批次
+            selected_batch = None
+            for batch in batch_groups:
+                if batch.get("batch_id") == args.batch:
+                    selected_batch = batch
+                    break
+            
+            if not selected_batch:
+                logger.error(f"Batch {args.batch} not found in config. Available batches:")
+                for batch in batch_groups:
+                    logger.error(f"  Batch {batch.get('batch_id')}: {batch.get('batch_name', 'unnamed')}")
+                return 1
+            
+            batch_model_names = set(selected_batch.get("model_names", []))
+            models_to_test = [m for m in all_models if m["name"] in batch_model_names]
+            
+            if not models_to_test:
+                logger.error(f"No models found in batch {args.batch}")
+                return 1
+            
+            logger.info(f"\n📦 Running batch {args.batch}: {selected_batch.get('batch_name', 'unnamed')}")
+            logger.info(f"  Models in this batch: {', '.join([m['name'] for m in models_to_test])}")
+        
+        # 如果指定了 --models，则进一步过滤
+        if args.models:
+            models_to_test = [m for m in models_to_test if m["name"] in args.models]
+            if not models_to_test:
+                logger.error(f"No matching models found: {args.models}")
+                return 1
+        
+        # 1.6. 验证所有模型是否存在
+        logger.info("\nValidating models...")
+        
+        # 获取可用模型列表
+        available_models = client.get_available_model_ids()
+        logger.info(f"Available models on Xinference ({len(available_models)}):")
+        for m in available_models[:10]:  # 显示前10个
+            logger.info(f"  - {m}")
+        if len(available_models) > 10:
+            logger.info(f"  ... and {len(available_models) - 10} more")
+        
+        # 验证每个模型
+        validated_models = []
+        for model_config in models_to_test:
+            model_name = model_config["name"]
+            model_full_name = model_config["model_name"]
+            
+            exists, actual_id = client.check_model_exists(model_full_name)
+            if not exists:
+                logger.error(
+                    f"\n✗ Model '{model_full_name}' (config name: '{model_name}') not found!\n"
+                    f"  Please ensure the model is loaded in Xinference.\n"
+                    f"  You can check available models with: curl http://{xinference_config['host']}:{xinference_config['port']}/v1/models"
+                )
+                # 继续验证其他模型，但记录错误
+            else:
+                if actual_id and actual_id != model_full_name:
+                    logger.warning(
+                        f"⚠ Model name mismatch for '{model_name}':\n"
+                        f"  Config uses: '{model_full_name}'\n"
+                        f"  Xinference has: '{actual_id}'\n"
+                        f"  Will use: '{actual_id}'"
+                    )
+                    # 更新配置中的模型名称
+                    model_config["model_name"] = actual_id
+                validated_models.append(model_config)
+                logger.info(f"✓ Model '{model_name}' validated: {actual_id or model_full_name}")
+        
+        if not validated_models:
+            logger.error("\n✗ No valid models found! Please check your configuration and Xinference setup.")
+            return 1
+        
+        logger.info(f"\n✓ Validated {len(validated_models)}/{len(models_to_test)} models")
         
         # 2. 准备数据集
         dataset_config = config["dataset"]
@@ -169,23 +281,10 @@ def main():
             output_dir=report_config.get("output_dir", "phase1_results")
         )
         
-        # 4. 准备模型列表
-        all_models = config["models"]
-        if args.models:
-            # 过滤指定的模型
-            models_to_test = [
-                m for m in all_models
-                if m["name"] in args.models
-            ]
-            if not models_to_test:
-                logger.error(f"No matching models found: {args.models}")
-                return 1
-        else:
-            models_to_test = all_models
-        
-        logger.info(f"\nModels to test: {len(models_to_test)}")
-        for model in models_to_test:
-            logger.info(f"  - {model['name']} ({model['dimensions']}维)")
+        # 4. 使用已验证的模型列表（已在前面验证）
+        logger.info(f"\nModels to test: {len(validated_models)}")
+        for model in validated_models:
+            logger.info(f"  - {model['name']} ({model['dimensions']}维, model_id: {model['model_name']})")
         
         # 5. 运行串行基准测试
         serial_config = config.get("serial_execution", {})
@@ -196,7 +295,7 @@ def main():
         logger.info(f"  Pause between models: {serial_config.get('pause_between_models', 5)}s")
         
         benchmark.run_serial_benchmark(
-            models=models_to_test,
+            models=validated_models,
             test_texts=test_texts,
             documents=documents,
             cache_dir=cache_config.get("output_dir", "vector_cache"),

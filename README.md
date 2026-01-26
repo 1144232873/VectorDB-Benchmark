@@ -61,14 +61,27 @@ uv venv
 source .venv/bin/activate
 uv pip install -e .
 
-# 运行测试
+# 方式1：运行所有模型（如果显存足够）
 python run_phase1.py --config ../config/phase1_config.yaml
 
+# 方式2：分批运行（推荐，显存不足时）
+# 查看可用批次
+python run_phase1.py --config ../config/phase1_config.yaml --list-batches
+
+# 运行第一批（较小的模型）
+python run_phase1.py --config ../config/phase1_config.yaml --batch 1
+
+# 运行第二批（较大的模型）
+python run_phase1.py --config ../config/phase1_config.yaml --batch 2
+
+# 方式3：指定特定模型
+python run_phase1.py --config ../config/phase1_config.yaml --models bge-m3 qwen2.5-0.6b
+
 # 可选：后台运行（可以关闭SSH连接）
-nohup python run_phase1.py --config ../config/phase1_config.yaml > ../logs/phase1.log 2>&1 &
+nohup python run_phase1.py --config ../config/phase1_config.yaml --batch 1 > ../logs/phase1_batch1.log 2>&1 &
 
 # 在新窗口中监控进度
-tail -f ~/VectorDB-Benchmark/logs/phase1.log
+tail -f ~/VectorDB-Benchmark/logs/phase1_batch1.log
 watch -n 1 nvidia-smi
 ```
 
@@ -109,7 +122,7 @@ scp -P 2222 root@192.168.1.51:~/VectorDB-Benchmark/phase1_results/*.html ./repor
 ## 📊 测试内容
 
 ### 阶段一：向量生成测试
-- 测试5个嵌入模型：BGE-base-zh-v1.5、BGE-M3、Qwen2.5-Embedding (0.6B/4B/8B)
+- 测试4个嵌入模型：BGE-M3、Qwen2.5-Embedding (0.6B/4B/8B)
 - 评估推理速度、显存占用、向量质量
 - 输出：模型对比报告 + 向量缓存(~300GB)
 
@@ -211,12 +224,52 @@ VectorDB-Benchmark/
 
 ## 🆘 故障排查
 
+### 显存不足问题
+
+如果显存不足以同时运行所有模型，可以使用分批测试：
+
+```bash
+# 1. 查看可用的批次配置
+python run_phase1.py --config ../config/phase1_config.yaml --list-batches
+
+# 2. 运行第一批（较小的模型）
+python run_phase1.py --config ../config/phase1_config.yaml --batch 1
+
+# 3. 等待第一批完成后，运行第二批（较大的模型）
+python run_phase1.py --config ../config/phase1_config.yaml --batch 2
+```
+
+批次配置在 `config/phase1_config.yaml` 中的 `batch_groups` 部分定义。可以根据显存情况调整批次分组。
+
+### 模型未找到错误
+
+如果遇到 `Model not found in the model list` 错误：
+
+```bash
+# 1. 检查 Xinference 上实际可用的模型
+ssh -p 2222 root@192.168.1.51 "curl http://localhost:9997/v1/models"
+
+# 2. 查看模型列表（格式化输出）
+ssh -p 2222 root@192.168.1.51 "curl -s http://localhost:9997/v1/models | python3 -m json.tool"
+
+# 3. 如果模型未加载，需要在 Xinference 中加载模型
+# 通常通过 Xinference Web UI 或 API 加载
+# 例如：访问 http://192.168.1.51:9997 查看 Web UI
+```
+
+**常见问题**：
+- 配置中的模型名称（如 `Qwen/Qwen2.5-Embedding-8B`）与 Xinference 中的实际模型ID不一致
+- 代码会自动尝试匹配相似的模型名称
+- 如果自动匹配失败，请检查配置文件 `config/phase1_config.yaml` 中的 `model_name` 字段，确保与 Xinference 中的模型ID一致
+
+### 其他常见问题
+
 ```bash
 # 连接失败
 ping 192.168.1.51
 telnet 192.168.1.51 2222
 
-# Xinference 检查
+# Xinference 服务检查
 ssh -p 2222 root@192.168.1.51 "curl http://localhost:9997/v1/models"
 
 # Docker 问题

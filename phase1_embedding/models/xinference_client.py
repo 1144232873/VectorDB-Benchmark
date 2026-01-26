@@ -66,6 +66,61 @@ class XinferenceClient:
             logger.error(f"Xinference service health check failed: {e}")
             return False
     
+    def get_available_model_ids(self) -> List[str]:
+        """
+        获取所有可用模型的ID列表
+        
+        Returns:
+            模型ID列表
+        """
+        models = self.list_models()
+        model_ids = []
+        for model in models:
+            # 尝试多种可能的字段名
+            model_id = (
+                model.get('id') or 
+                model.get('model_id') or 
+                model.get('name') or
+                model.get('uid')
+            )
+            if model_id:
+                model_ids.append(str(model_id))
+        return model_ids
+    
+    def check_model_exists(self, model_name: str) -> tuple[bool, Optional[str]]:
+        """
+        检查模型是否存在，如果不存在则尝试找到匹配的模型
+        
+        Args:
+            model_name: 要检查的模型名称
+            
+        Returns:
+            (是否存在, 实际模型ID或None)
+        """
+        available_models = self.get_available_model_ids()
+        
+        # 精确匹配
+        if model_name in available_models:
+            return True, model_name
+        
+        # 尝试模糊匹配（不区分大小写，忽略斜杠）
+        model_name_lower = model_name.lower().replace('/', '-')
+        for available_id in available_models:
+            available_lower = available_id.lower().replace('/', '-')
+            if model_name_lower == available_lower:
+                logger.warning(f"Model name mismatch: config uses '{model_name}', but Xinference has '{available_id}'")
+                return True, available_id
+        
+        # 尝试部分匹配（包含关键词）
+        keywords = model_name.lower().replace('/', ' ').replace('-', ' ').split()
+        for available_id in available_models:
+            available_lower = available_id.lower()
+            if all(keyword in available_lower for keyword in keywords if len(keyword) > 2):
+                logger.warning(f"Found similar model: '{available_id}' (config uses '{model_name}')")
+                return True, available_id
+        
+        return False, None
+    
     def embed_single(self, text: str, model: str) -> Optional[np.ndarray]:
         """
         生成单个文本的向量
@@ -77,15 +132,37 @@ class XinferenceClient:
         Returns:
             向量数组，失败返回None
         """
+        # 检查模型是否存在
+        exists, actual_model_id = self.check_model_exists(model)
+        if not exists:
+            available_models = self.get_available_model_ids()
+            error_msg = (
+                f"Model '{model}' not found in Xinference.\n"
+                f"Available models: {', '.join(available_models[:10])}"
+            )
+            logger.error(error_msg)
+            return None
+        
+        # 使用实际模型ID
+        actual_model = actual_model_id if actual_model_id else model
+        
         try:
             response = self.client.embeddings.create(
-                model=model,
+                model=actual_model,
                 input=[text]
             )
             embedding = response.data[0].embedding
             return np.array(embedding, dtype=np.float32)
         except Exception as e:
-            logger.error(f"Failed to embed single text: {e}")
+            error_detail = str(e)
+            if "not found" in error_detail.lower() or "400" in error_detail:
+                available_models = self.get_available_model_ids()
+                logger.error(
+                    f"Failed to embed single text with model '{model}': {error_detail}\n"
+                    f"Available models: {', '.join(available_models[:10])}"
+                )
+            else:
+                logger.error(f"Failed to embed single text: {error_detail}")
             return None
     
     def embed_batch(self, texts: List[str], model: str, batch_size: int = 32) -> Optional[np.ndarray]:
@@ -103,13 +180,29 @@ class XinferenceClient:
         if not texts:
             return None
         
+        # 检查模型是否存在
+        exists, actual_model_id = self.check_model_exists(model)
+        if not exists:
+            available_models = self.get_available_model_ids()
+            error_msg = (
+                f"Model '{model}' not found in Xinference.\n"
+                f"Available models ({len(available_models)}):\n"
+            )
+            for m in available_models:
+                error_msg += f"  - {m}\n"
+            logger.error(error_msg)
+            return None
+        
+        # 使用实际模型ID
+        actual_model = actual_model_id if actual_model_id else model
+        
         try:
             # 分批处理
             all_embeddings = []
             for i in range(0, len(texts), batch_size):
                 batch = texts[i:i+batch_size]
                 response = self.client.embeddings.create(
-                    model=model,
+                    model=actual_model,
                     input=batch
                 )
                 batch_embeddings = [data.embedding for data in response.data]
@@ -117,7 +210,17 @@ class XinferenceClient:
             
             return np.array(all_embeddings, dtype=np.float32)
         except Exception as e:
-            logger.error(f"Failed to embed batch: {e}")
+            error_detail = str(e)
+            # 如果是模型未找到错误，提供更详细的信息
+            if "not found" in error_detail.lower() or "400" in error_detail:
+                available_models = self.get_available_model_ids()
+                logger.error(
+                    f"Failed to embed batch with model '{model}': {error_detail}\n"
+                    f"Available models: {', '.join(available_models[:10])}"
+                    + (f" (and {len(available_models) - 10} more)" if len(available_models) > 10 else "")
+                )
+            else:
+                logger.error(f"Failed to embed batch: {error_detail}")
             return None
     
     def embed_batch_with_timing(

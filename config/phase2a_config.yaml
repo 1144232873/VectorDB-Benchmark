@@ -54,7 +54,6 @@ databases:
 vector_cache:
   input_dir: "vector_cache"
   models:
-    - "bge-base-zh-v1.5"
     - "bge-m3"
     - "qwen2.5-0.6b"
     - "qwen2.5-4b"

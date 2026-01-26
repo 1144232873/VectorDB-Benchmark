@@ -444,11 +444,11 @@ class Phase1ReportGenerator:
         <div style="line-height: 2;">
             <h3 style="color: #667eea; margin-bottom: 15px;">🏆 推荐方案</h3>
             
-            <p><strong>🚀 追求速度：</strong> BGE-base-zh-v1.5</p>
+            <p><strong>🚀 追求速度：</strong> BGE-M3</p>
             <ul>
-                <li>最快的推理速度，亿级向量约18小时</li>
-                <li>显存占用最小（~0.6GB）</li>
-                <li>适合快速原型和实时场景</li>
+                <li>较快的推理速度，适合大规模场景</li>
+                <li>显存占用适中</li>
+                <li>支持多语言，质量较好</li>
             </ul>
             
             <p><strong>⚖️ 平衡选择：</strong> Qwen2.5-0.6B (推荐)</p>
@@ -470,7 +470,7 @@ class Phase1ReportGenerator:
             <h3 style="color: #667eea; margin: 25px 0 15px 0;">💰 成本考虑</h3>
             <p>基于 RTX 4090 24GB GPU @ $3/hour：</p>
             <ul>
-                <li>BGE-base-zh: 1亿向量 ≈ $54</li>
+                <li>BGE-M3: 1亿向量 ≈ $60-80</li>
                 <li>Qwen2.5-0.6B: 1亿向量 ≈ $84</li>
                 <li>Qwen2.5-8B: 1亿向量 ≈ $462</li>
             </ul>

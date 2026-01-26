@@ -8,12 +8,6 @@ xinference:
 
 # 测试模型列表（按顺序串行测试）
 models:
-  - name: "bge-base-zh-v1.5"
-    model_name: "BAAI/bge-base-zh-v1.5"
-    dimensions: 768
-    max_tokens: 512
-    batch_sizes: [8, 16, 32, 64]
-    
   - name: "bge-m3"
     model_name: "BAAI/bge-m3"
     dimensions: 1024
@@ -95,3 +89,21 @@ serial_execution:
   enabled: true  # 强制串行
   cleanup_between_models: true  # 模型间清理显存
   pause_between_models: 5  # 模型间暂停秒数
+
+# 分批测试配置（用于显存不足时）
+# 如果定义了批次，可以通过 --batch 参数指定要运行的批次
+# 例如：python run_phase1.py --config ../config/phase1_config.yaml --batch 1
+batch_groups:
+  # 第一批：较小的模型（显存占用较小）
+  - batch_id: 1
+    batch_name: "small_models"
+    model_names:
+      - "bge-m3"
+      - "qwen2.5-0.6b"
+  
+  # 第二批：较大的模型（显存占用较大）
+  - batch_id: 2
+    batch_name: "large_models"
+    model_names:
+      - "qwen2.5-4b"
+      - "qwen2.5-8b"
