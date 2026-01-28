@@ -1,0 +1,48 @@
+# PDF向量化测试配置文件
+
+# Xinference服务配置
+xinference:
+  host: "192.168.1.51"
+  port: 9997
+  timeout: 300
+
+# 模型配置
+model:
+  name: "qwen3-0.6b"
+  model_name: "Qwen3-Embedding-0.6B"  # Xinference中的实际模型ID
+  dimensions: 1024
+  max_tokens: 32768
+
+# PDF处理配置
+pdf:
+  input_dir: "向量测试文档"  # PDF文件目录
+  chunk_size: 512            # 文本分块大小（字符数）
+  min_length: 10             # 最小文本长度
+  max_length: 512            # 最大文本长度
+
+# 数据扩展配置
+expansion:
+  target_count: 100000       # 目标文档数（扩展到10万级别）
+  strategy: "repeat"         # 扩展策略: "repeat" 或 "fuzzy"
+  repeat_factor: null        # 自动计算，无需设置
+
+# Elasticsearch配置
+elasticsearch:
+  host: "localhost"          # ES服务器地址（请根据实际情况修改）
+  port: 9200                 # ES服务器端口（请根据实际情况修改）
+  index_name: "pdf_vectors"  # ES索引名称
+  bulk_size: 5000            # 批量导入大小
+
+# 性能配置（使用项目最佳实践）
+performance:
+  max_concurrent_requests: 16  # 最大并发请求数
+  auto_tune_batch_size: true  # 自动调优batch size
+  max_batch_size: 2048        # 最大batch size
+
+# 输出配置
+output:
+  results_dir: "results"                    # 结果目录
+  vectors_dir: "results/vectors"            # 向量文件目录
+  cache_dir: "results/cache"                # 缓存目录（可选）
+  report_file: "results/report.html"        # HTML报告文件
+  vectors_file: ""                          # 向量文件路径（自动生成）

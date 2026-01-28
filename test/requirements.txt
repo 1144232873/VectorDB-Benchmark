@@ -1,0 +1,30 @@
+# PDF向量化测试脚本依赖
+
+# PDF处理
+pdfplumber>=0.10.0
+
+# 异步HTTP客户端（用于Xinference）
+httpx[http2]>=0.27.0
+
+# 数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+
+# 向量存储（可选）
+h5py>=3.10.0
+
+# Token统计（二选一，推荐tiktoken）
+tiktoken>=0.5.0
+# transformers>=4.30.0  # 如果tiktoken不可用，可以使用transformers
+
+# 进度条
+tqdm>=4.66.0
+
+# 配置解析
+pyyaml>=6.0.1
+
+# 报告生成
+plotly>=5.18.0
+
+# Elasticsearch客户端（用于验证，实际导入使用bulk JSON文件）
+elasticsearch>=8.12.0
