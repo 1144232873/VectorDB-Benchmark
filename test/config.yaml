@@ -11,6 +11,9 @@ tie:
   host: "localhost"
   port: 8088
   timeout: 300
+  # 单次 /embed 请求体易触发 413，使用较小批次（可随服务端 limit 调大）
+  start_batch_size: 8    # 自动调优起始批次
+  max_batch_size: 32     # 单次请求最大条数，避免 Payload Too Large
   # Qwen3-Embedding 指令模板，{text} 会被替换为原文；留空则不包装
   instruction_template: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: {text}"
 

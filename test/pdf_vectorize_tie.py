@@ -158,20 +158,22 @@ class PDFVectorizerTIE:
                 logger.warning(f"TIE health check failed (will continue): {e}")
 
             texts = [doc['text'] for doc in documents]
+            # TIE 易触发 413，使用 tie 专用批次上限
+            start_batch = tie_config.get('start_batch_size', 8)
+            max_batch = tie_config.get('max_batch_size', 32)
             if auto_tune and batch_size is None:
                 logger.info("TIE: Auto-tuning batch size...")
-                max_batch = perf_config.get('max_batch_size', 2048)
                 optimal_batch, _ = await client.find_optimal_batch_size(
                     texts[:min(1000, len(texts))],
                     model_name,
-                    start_size=64,
+                    start_size=start_batch,
                     max_size=max_batch,
                     test_iterations=3,
                 )
                 batch_size = optimal_batch
                 logger.info(f"Using optimal batch size: {batch_size}")
             elif batch_size is None:
-                batch_size = 128
+                batch_size = max_batch
 
             logger.info(f"TIE: Vectorizing {len(documents)} documents...")
             start_time = time.time()
