@@ -417,8 +417,14 @@ class ReportGenerator:
             es_port=es_port
         )
         
-        # 保存HTML文件
-        output_path = self.output_dir / output_file
+        # 保存HTML文件：若 output_file 已包含 output_dir 前缀（如 "results/report.html"），
+        # 则直接使用该路径，避免 self.output_dir / output_file 产生 results/results/report.html
+        output_dir_str = str(self.output_dir)
+        if output_file.startswith(output_dir_str + '/') or output_file.startswith(output_dir_str + '\\'):
+            output_path = Path(output_file)
+        else:
+            output_path = self.output_dir / output_file
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
