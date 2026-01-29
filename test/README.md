@@ -15,6 +15,34 @@
 
 ### 1. 安装依赖
 
+**方式一：使用 uv（推荐）**
+
+```bash
+cd test
+
+# 创建虚拟环境并安装依赖（一步到位）
+uv venv
+uv sync
+
+# 激活环境后运行（Windows PowerShell）
+.venv\Scripts\Activate.ps1
+# 或 Windows CMD
+.venv\Scripts\activate.bat
+# 或 Linux/macOS
+source .venv/bin/activate
+
+python pdf_vectorize.py --config config.yaml
+```
+
+**方式二：仅用 uv 安装依赖到当前环境**
+
+```bash
+cd test
+uv pip install -r requirements.txt
+```
+
+**方式三：传统 pip**
+
 ```bash
 cd test
 pip install -r requirements.txt
@@ -173,6 +201,34 @@ test/
     ├── vectors/          # 向量文件
     └── report.html       # HTML报告
 ```
+
+## uv 环境管理
+
+本目录支持用 [uv](https://github.com/astral-sh/uv) 管理虚拟环境和依赖。
+
+| 命令 | 说明 |
+|------|------|
+| `uv venv` | 在当前目录创建 `.venv` 虚拟环境 |
+| `uv sync` | 按 `pyproject.toml` 安装/锁定依赖（推荐） |
+| `uv pip install -r requirements.txt` | 按 `requirements.txt` 安装依赖 |
+| `uv add 包名` | 添加依赖并更新 `pyproject.toml` |
+| `uv remove 包名` | 移除依赖 |
+
+**推荐流程：**
+
+```bash
+cd test
+uv venv
+uv sync
+# Windows 激活
+.venv\Scripts\Activate.ps1
+# 运行脚本
+python pdf_vectorize.py --config config.yaml
+```
+
+依赖定义在两处任选其一即可：
+- **pyproject.toml**：用 `uv sync` 安装（版本锁定更清晰）
+- **requirements.txt**：用 `uv pip install -r requirements.txt` 安装
 
 ## 注意事项
 
