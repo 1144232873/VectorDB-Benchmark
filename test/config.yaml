@@ -7,13 +7,14 @@ xinference:
   timeout: 300
 
 # Text Embeddings Inference (TIE/TEI) 配置（用于 pdf_vectorize_tie.py 对比测试）
+# 以下为 RTX 4090 优化：需配合 docker 启动参数 --payload-limit、--max-client-batch-size、--max-batch-tokens
 tie:
   host: "localhost"
   port: 8088
   timeout: 300
-  # 单次 /embed 请求体易触发 413，使用较小批次（可随服务端 limit 调大）
-  start_batch_size: 8    # 自动调优起始批次
-  max_batch_size: 32     # 单次请求最大条数，避免 Payload Too Large
+  start_batch_size: 128   # 4090 可大 batch，自动调优起点
+  max_batch_size: 512     # 单次请求条数，与 docker --max-client-batch-size 保持一致或略小
+  max_concurrent_requests: 24  # 4090 可提高并发，与服务端 --max-concurrent-requests 协调
   # Qwen3-Embedding 指令模板，{text} 会被替换为原文；留空则不包装
   instruction_template: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: {text}"
 

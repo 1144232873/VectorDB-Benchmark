@@ -141,11 +141,15 @@ class PDFVectorizerTIE:
         perf_config = self.config.get('performance', {})
         instruction_template = tie_config.get('instruction_template') or ""
 
+        max_concurrent = tie_config.get(
+            'max_concurrent_requests',
+            perf_config.get('max_concurrent_requests', 16),
+        )
         async with AsyncTIEClient(
             host=tie_config.get('host', 'localhost'),
             port=tie_config.get('port', 8088),
             timeout=tie_config.get('timeout', 300),
-            max_concurrent_requests=perf_config.get('max_concurrent_requests', 16),
+            max_concurrent_requests=max_concurrent,
             instruction_template=instruction_template if instruction_template else None,
         ) as client:
             try:

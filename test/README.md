@@ -66,13 +66,40 @@ python pdf_vectorize.py --config config.yaml
 
 **使用 TIE（Hugging Face Text Embeddings Inference）对比测试：**
 
-先启动 TIE 容器（例如 Qwen3-Embedding）：
+先启动 TIE 容器（例如 Qwen3-Embedding）。**Docker 直连时** TIE 自带请求体限制，需显式调大：
 
-```bash
-docker run --gpus all -p 8088:80 -v hf_cache:/data --pull always \
-  ghcr.io/huggingface/text-embeddings-inference:cpu-1.7.2 \
-  --model-id Qwen/Qwen3-Embedding-0.6B --dtype float16
-```
+- **查看 TIE 所有参数**（含 body 限制）：
+  ```bash
+  docker run --rm ghcr.io/huggingface/text-embeddings-inference:cpu-1.7.2 --help
+  ```
+  关注两项：
+  - **`--payload-limit`**：单次请求体最大字节数，**默认 2MB**（约 2_000_000），超过会返回 413。
+  - **`--max-client-batch-size`**：单次请求最多多少条文本，默认 32。
+
+- **调大后启动示例**（例如 50MB + 单次最多 256 条）：
+  ```bash
+  docker run --gpus all -p 8088:80 -v hf_cache:/data --pull always \
+    ghcr.io/huggingface/text-embeddings-inference:cpu-1.7.2 \
+    --model-id Qwen/Qwen3-Embedding-0.6B --dtype float16 \
+    --payload-limit 52428800 \
+    --max-client-batch-size 256
+  ```
+  `52428800` = 50MB，可按需改为 `104857600`（100MB）等。调大后可在 `config.yaml` 里把 `tie.max_batch_size` 提高到 128～256，以提升吞吐。
+
+- **RTX 4090（24GB）推荐**：大 batch + 高并发，与 `config.yaml` 中 `tie.start_batch_size: 128`、`max_batch_size: 512`、`max_concurrent_requests: 24` 配套使用：
+  ```bash
+  docker run --gpus all -p 8088:80 -v hf_cache:/data --pull always \
+    ghcr.io/huggingface/text-embeddings-inference:cpu-1.7.2 \
+    --model-id Qwen/Qwen3-Embedding-0.6B --dtype float16 \
+    --payload-limit 104857600 \
+    --max-client-batch-size 512 \
+    --max-batch-tokens 65536 \
+    --max-concurrent-requests 64
+  ```
+  - `--payload-limit 104857600`：100MB 请求体。
+  - `--max-client-batch-size 512`：单次请求最多 512 条。
+  - `--max-batch-tokens 65536`：单批最大 token 数（0.6B 小模型在 24GB 上可设大一些，提升吞吐）。
+  - `--max-concurrent-requests 64`：服务端并发槽位，客户端 `tie.max_concurrent_requests: 24` 即可喂满。
 
 在 `config.yaml` 中配置 `tie.host`、`tie.port`（默认 localhost:8088），然后运行：
 
@@ -100,12 +127,15 @@ xinference:
 ```
 
 ### TIE 配置（pdf_vectorize_tie.py 对比测试）
+当前 `config.yaml` 已按 **RTX 4090** 预设；其他显卡可适当减小 `max_batch_size`、`max_concurrent_requests`。
 ```yaml
 tie:
-  host: "localhost"     # TIE 服务地址（docker -p 8088:80 时本机用 localhost）
-  port: 8088            # 宿主机映射端口
+  host: "localhost"
+  port: 8088
   timeout: 300
-  # Qwen3-Embedding 指令模板，{text} 替换为原文；留空则不包装
+  start_batch_size: 128   # 4090 自动调优起点；小显存可改为 8～32
+  max_batch_size: 512     # 与 docker --max-client-batch-size 一致或略小
+  max_concurrent_requests: 24  # 4090 可提高；小显存用 8～16
   instruction_template: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: {text}"
 ```
 
