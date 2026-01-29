@@ -1,12 +1,12 @@
 """
 Elasticsearch批量导入模块
-生成ES Bulk API格式的JSON文件，可直接导入ES
+生成ES Bulk API格式的JSON文件，支持流式导入ES（避免大文件OOM）
 """
 
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import numpy as np
 from tqdm import tqdm
 
@@ -185,6 +185,95 @@ class ESExporter:
             pbar.close()
         
         logger.info(f"✓ Exported {len(documents)} documents to {output_file}")
+
+    def import_bulk_file_to_es(
+        self,
+        bulk_file: Path,
+        host: str = "localhost",
+        port: int = 9200,
+        index_name_override: Optional[str] = None,
+        chunk_size: int = 500,
+        show_progress: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        流式读取 bulk NDJSON 文件并分批导入 ES，不将整个文件载入内存。
+
+        Args:
+            bulk_file: bulk_import.json 文件路径
+            host: ES 地址
+            port: ES 端口
+            index_name_override: 若指定则覆盖文件中的 _index
+            chunk_size: 每批提交的文档数（建议 500~2000）
+            show_progress: 是否显示进度条
+
+        Returns:
+            统计信息 {"indexed": N, "errors": M, "total": ...}
+        """
+        try:
+            from elasticsearch import Elasticsearch
+        except ImportError:
+            raise ImportError("需要安装 elasticsearch: pip install elasticsearch")
+
+        bulk_file = Path(bulk_file)
+        if not bulk_file.exists():
+            raise FileNotFoundError(f"Bulk file not found: {bulk_file}")
+
+        index_name = index_name_override or self.index_name
+        es_url = f"http://{host}:{port}"
+        es = Elasticsearch(hosts=[es_url])
+
+        total_indexed = 0
+        total_errors = 0
+        batch = []
+
+        def submit_batch():
+            nonlocal total_indexed, total_errors
+            if not batch:
+                return
+            body = []
+            for action, source in batch:
+                body.append(action)
+                body.append(source)
+            resp = es.bulk(body=body, refresh=False)
+            if resp.get("errors"):
+                for item in resp.get("items", []):
+                    op = item.get("index") or item.get("create")
+                    if op and op.get("error"):
+                        total_errors += 1
+            total_indexed += len(batch)
+            batch.clear()
+
+        logger.info(f"Streaming import from {bulk_file} to ES {host}:{port} index={index_name} (chunk={chunk_size})")
+
+        with open(bulk_file, "r", encoding="utf-8") as f:
+            lines = (line.strip() for line in f if line.strip())
+            it = iter(lines)
+            doc_count = 0
+            pbar = tqdm(desc="Importing to ES", unit=" docs", disable=not show_progress)
+
+            while True:
+                try:
+                    action_line = next(it)
+                    source_line = next(it)
+                except StopIteration:
+                    break
+
+                action = json.loads(action_line)
+                source = json.loads(source_line)
+                if index_name_override:
+                    action["index"]["_index"] = index_name
+                batch.append((action, source))
+                doc_count += 1
+                pbar.update(1)
+
+                if len(batch) >= chunk_size:
+                    submit_batch()
+
+            submit_batch()
+            pbar.close()
+
+        logger.info(f"✓ Imported {total_indexed} documents to ES (errors: {total_errors})")
+        return {"indexed": total_indexed, "errors": total_errors, "total": doc_count}
 
 
 if __name__ == "__main__":

@@ -1,0 +1,25 @@
+{
+  "mappings": {
+    "properties": {
+      "text": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "vector": {
+        "type": "dense_vector",
+        "dims": 1024,
+        "index": true,
+        "similarity": "cosine"
+      },
+      "source_file": {
+        "type": "keyword"
+      },
+      "chunk_id": {
+        "type": "integer"
+      },
+      "repeat_id": {
+        "type": "integer"
+      }
+    }
+  }
+}

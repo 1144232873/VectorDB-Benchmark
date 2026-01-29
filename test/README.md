@@ -120,12 +120,50 @@ performance:
 {"text": "...", "vector": [...], "source_file": "xxx.pdf", "chunk_id": 1}
 ```
 
-导入到ES：
+**导入前需先创建索引并设置 mapping**（见下方「Elasticsearch 索引 Mapping」），再执行 bulk 导入。
+
+**推荐：用脚本流式导入（大文件不会 OOM）**
+
+```bash
+# 按 config.yaml 中的 ES 地址和索引名，流式导入（分批提交，不占大内存）
+python import_to_es.py --config config.yaml
+
+# 指定 bulk 文件和每批条数
+python import_to_es.py --file results/vectors/bulk_import.json --chunk-size 500
+```
+
+若 bulk 文件很大（如 10 万条），不要用 `curl --data-binary`，会整文件进内存导致 OOM；用上面脚本即可。
+
+**小文件可用 curl（不推荐大文件）**
+
 ```bash
 curl -X POST 'localhost:9200/_bulk' \
   -H 'Content-Type: application/x-ndjson' \
   --data-binary @results/vectors/bulk_import.json
 ```
+
+### Elasticsearch 索引 Mapping
+
+`pdf_vectors` 索引入口文档结构与对应 mapping 如下（与 `config.yaml` 中 `model.dimensions`、`elasticsearch.index_name` 一致）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `text` | `text` | 分块文本，支持全文检索 |
+| `vector` | `dense_vector` | 向量，维度需与配置中 `dimensions`（如 1024）一致，用于 kNN 检索 |
+| `source_file` | `keyword` | 来源 PDF 文件名 |
+| `chunk_id` | `integer` | 分块序号 |
+| `repeat_id` | `integer` | 扩展时的重复副本序号（可选） |
+
+**创建索引（先执行，再 bulk 导入）：**
+
+```bash
+# 若已存在旧索引可先删除（慎用）：curl -X DELETE 'localhost:9200/pdf_vectors'
+curl -X PUT 'localhost:9200/pdf_vectors' \
+  -H 'Content-Type: application/json' \
+  -d @es_pdf_vectors_mapping.json
+```
+
+mapping 文件：`test/es_pdf_vectors_mapping.json`。若模型维度不是 1024，请修改该文件中 `vector.dims` 与配置一致。
 
 ### 2. HTML报告
 `results/report.html`
