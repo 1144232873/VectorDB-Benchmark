@@ -58,23 +58,55 @@ pip install -r requirements.txt
 
 ### 3. 运行
 
+**使用 Xinference（默认）：**
+
 ```bash
 python pdf_vectorize.py --config config.yaml
 ```
 
+**使用 TIE（Hugging Face Text Embeddings Inference）对比测试：**
+
+先启动 TIE 容器（例如 Qwen3-Embedding）：
+
+```bash
+docker run --gpus all -p 8088:80 -v hf_cache:/data --pull always \
+  ghcr.io/huggingface/text-embeddings-inference:cpu-1.7.2 \
+  --model-id Qwen/Qwen3-Embedding-0.6B --dtype float16
+```
+
+在 `config.yaml` 中配置 `tie.host`、`tie.port`（默认 localhost:8088），然后运行：
+
+```bash
+python pdf_vectorize_tie.py --config config.yaml
+```
+
+TIE 版本输出到独立目录，便于与 Xinference 结果对比：
+- 向量文件：`results_tie/vectors/bulk_import.json`
+- HTML报告：`results_tie/report.html`
+
 ### 4. 查看结果
 
-- 向量文件：`results/vectors/bulk_import.json`
-- HTML报告：`results/report.html`
+- **Xinference**：向量文件 `results/vectors/bulk_import.json`，报告 `results/report.html`
+- **TIE 对比**：向量文件 `results_tie/vectors/bulk_import.json`，报告 `results_tie/report.html`
 
 ## 配置文件说明
 
-### Xinference配置
+### Xinference配置（pdf_vectorize.py）
 ```yaml
 xinference:
   host: "192.168.1.51"  # Xinference服务器地址
   port: 9997            # Xinference服务器端口
   timeout: 300
+```
+
+### TIE 配置（pdf_vectorize_tie.py 对比测试）
+```yaml
+tie:
+  host: "localhost"     # TIE 服务地址（docker -p 8088:80 时本机用 localhost）
+  port: 8088            # 宿主机映射端口
+  timeout: 300
+  # Qwen3-Embedding 指令模板，{text} 替换为原文；留空则不包装
+  instruction_template: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: {text}"
 ```
 
 ### 模型配置

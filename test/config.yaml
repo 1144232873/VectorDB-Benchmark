@@ -1,10 +1,18 @@
 # PDF向量化测试配置文件
 
-# Xinference服务配置
+# Xinference服务配置（用于 pdf_vectorize.py）
 xinference:
   host: "192.168.1.51"
   port: 9997
   timeout: 300
+
+# Text Embeddings Inference (TIE/TEI) 配置（用于 pdf_vectorize_tie.py 对比测试）
+tie:
+  host: "localhost"
+  port: 8088
+  timeout: 300
+  # Qwen3-Embedding 指令模板，{text} 会被替换为原文；留空则不包装
+  instruction_template: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: {text}"
 
 # 模型配置
 model:
@@ -46,3 +54,7 @@ output:
   cache_dir: "results/cache"                # 缓存目录（可选）
   report_file: "results/report.html"        # HTML报告文件
   vectors_file: ""                          # 向量文件路径（自动生成）
+  # TIE 对比测试专用输出（pdf_vectorize_tie.py 使用，避免覆盖 Xinference 结果）
+  tie_results_dir: "results_tie"
+  tie_vectors_dir: "results_tie/vectors"
+  tie_report_file: "results_tie/report.html"
